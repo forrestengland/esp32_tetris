@@ -383,10 +383,12 @@ void freeze_active_tetromino() {
 
 // 'create' the new active tetromino
 void spawn_active_tetromino() {
+
   active_tetromino_x = INITIAL_TETROMINO_X;
   active_tetromino_y = 0;
   active_tetromino_rotation = 0;
-  active_tetromino_type = (active_tetromino_type + 1) % TETROMINO_TYPE_COUNT;
+
+  active_tetromino_type = random(TETROMINO_TYPE_COUNT - 1);
 }
 
 void delete_row(int r) {
@@ -448,7 +450,10 @@ void update_tetris() {
     int new_tetromino_y = active_tetromino_y + 1;
 
     // check if the active tetromino fits in the new location
-    int tetromino_fits = does_tetromino_fit(active_tetromino_type, active_tetromino_rotation, active_tetromino_x, new_tetromino_y);
+    int tetromino_fits = does_tetromino_fit(active_tetromino_type,
+					    active_tetromino_rotation,
+					    active_tetromino_x,
+					    new_tetromino_y);
 
     // if it doesn't, freeze it to the background and spawn a new tetromino
     if (!tetromino_fits) {

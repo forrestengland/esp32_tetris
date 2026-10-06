@@ -201,10 +201,10 @@ void draw_tetris() {
       
       /* find out if the current block is concurrent with the active tetromino */
       if (active_tetromino_occupies_block(row, col)) {
-	u8g2.drawBox(fieldx + bx, fieldy + by, bw, bh);
+				u8g2.drawBox(fieldx + bx, fieldy + by, bw, bh);
       } else if (tetris_field[row * TETRIS_FIELD_COLS + col]) {
-	// there's a background block here, draw it as an outline
-	u8g2.drawFrame(fieldx + bx, fieldy + by, bw, bh);
+				// there's a background block here, draw it as an outline
+				u8g2.drawFrame(fieldx + bx, fieldy + by, bw, bh);
       }
     }
   }
@@ -226,13 +226,11 @@ void draw_menu() {
 void draw_music() {
 
   u8g2.drawStr(3, 10, "flamenco.raw");
-
   u8g2.drawFrame(0, 0, 128, 12);
 
 }
 
 void draw_tracker() {
-
   u8g2.drawStr(3, 10, "tracker");
 }
 
