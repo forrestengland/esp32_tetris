@@ -160,20 +160,22 @@ void i2s_task(void *pvParameters) {
       // do the raw soundfile playback if the file was opened successfully
       if (fileopen) {
 
-	play_audio();
+				play_audio();
 	
       } else {
 
         // Calculate and write sine sample to I2S buffer [0.1]
-        sample = (int16_t)(sinf(phase) * 10000.0f) * 0.1; // sample data 
-        int16_t samples[2] = {sample, sample};
-	size_t bytes_written; // number of bytes written to i2s
+				//				sample = (int16_t)(sinf(phase) * 10000.0f) * 0.1; // sample data 
+				//        int16_t samples[2] = {sample, sample};
+				size_t bytes_written; // number of bytes written to i2s
+
+				int16_t samples[2] = {0, 0};
 	
-	i2s_write(I2S_NUM, &samples, sizeof(samples), &bytes_written, portMAX_DELAY);
+				i2s_write(I2S_NUM, &samples, sizeof(samples), &bytes_written, portMAX_DELAY);
 		
-        phase += phase_inc;
-        if (phase >= 2.0f * PI) phase -= 2.0f * PI;
-      }
+				//        phase += phase_inc;
+				//        if (phase >= 2.0f * PI) phase -= 2.0f * PI;
+			}
     }
 }
 
@@ -282,34 +284,36 @@ void setup() {
 
   delay(1000);
 
-  if(!SD.begin(5)){ // 5 is the CS pin
+	Serial.println("end setup");
+}
+
+void play_audio_file(char* filename) {
+
+	if(!SD.begin(5)){ // 5 is the CS pin
     Serial.println("Card Mount Failed");
     return;
   } else {
     Serial.println("card mount success");
   }
 
-  if (SD.exists("/FLAMENCO.RAW")) {
+  if (SD.exists(filename)) {
     Serial.println("file exists");
   } else {
     Serial.println("file doesn't exist");
     return;
   }
     
-  file = SD.open("/FLAMENCO.RAW");
+  file = SD.open(filename);
   if (file) {
     Serial.println("file open success");
     fileopen = 1;
   } else {
     Serial.println("file open fail");
   }
-    
-  //  file.close();
+
 }
 
-
-void loop()
-{
+void loop() {
 
   int state = !digitalRead(BUTTON_A_PIN);
   if (state != buttonAState) {
@@ -317,16 +321,18 @@ void loop()
     Serial.printf("buttonAState changed to %d\n", buttonAState);
     if (buttonAState) {
       if (current_app == application_menu) {
-	if (app_selection == APP_SELECTION_TETRIS) {
-	  current_app = application_tetris;
-	} else if (app_selection == APP_SELECTION_MUSIC) {
-	  current_app = application_music;
-	} else if (app_selection == APP_SELECTION_TRACKER) {
-	  current_app = application_tracker;
-	}
+				if (app_selection == APP_SELECTION_TETRIS) {
+					current_app = application_tetris;
+				} else if (app_selection == APP_SELECTION_MUSIC) {
+					current_app = application_music;
+				} else if (app_selection == APP_SELECTION_TRACKER) {
+					current_app = application_tracker;
+				}
       } else if (current_app == application_tetris) {
-	rotate_active_tetromino();
-      }
+				rotate_active_tetromino();
+      } else if (current_app == application_music) {
+				play_audio_file("/FLAMENCO.RAW");
+			}
     }
   }
 
