@@ -1,4 +1,4 @@
-/* micro sd card read of raw audio */
+/* micro sd card read of raw audio and tetris game */
 /* i2s from https://www.youtube.com/watch?v=oVVcuUuJ9CM */
 
 // for audio
@@ -10,16 +10,19 @@
 #include <U8g2lib.h>
 
 // for sd card
-#include "FS.h"
-#include "SD.h"
-#include "SPI.h"
+#include <FS.h>
+#include <SD.h>
+#include <SPI.h>
 
+// for snprintf
 #include <stdio.h>
 
+// tetris
 extern "C" {
   #include "tetris.h"
 }
 
+// oled stuff
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 128
 #define OLED_RESET -1
@@ -27,18 +30,16 @@ extern "C" {
 // This constructor often fixes the 96-pixel offset issue on SH1107 screens
 U8G2_SH1107_PIMORONI_128X128_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE);
 
-#define DEG2RAD 0.0174532925
-
 // Defines for I2S, sample rate, frequency, and pins [0.1]
 #define I2S_NUM           I2S_NUM_0
 #define SAMPLE_RATE       44100
-#define WAVE_FREQ_HZ      440.0f
-#define PI                3.14159265f
-
+// #define WAVE_FREQ_HZ      440.0f
+// #define PI                3.14159265f
 #define I2S_BCK 26
 #define I2S_WS  27
 #define I2S_DIN 25
 
+// buttons
 #define BUTTON_A_PIN 2
 #define BUTTON_B_PIN 4
 #define BUTTON_DOWN_PIN 13
@@ -56,6 +57,7 @@ int buttonRightState = 0;
 File file;
 int fileopen = 0;
 
+// menu
 typedef enum {
   application_menu,
   application_tetris,
@@ -64,6 +66,7 @@ typedef enum {
   application_count
 } application;
 
+// current / selected application
 //application current_app = application_tetris;
 application current_app = application_menu;
 #define APP_SELECTION_TETRIS 0
@@ -72,9 +75,19 @@ application current_app = application_menu;
 #define APP_SELECTION_COUNT 3
 int app_selection = 0;
 
+// audio buffer
 #define AUDIO_BUFFER_SIZE 1024
 char audio_buffer[AUDIO_BUFFER_SIZE];
 
+// audio file selection
+int selected_file = 0;
+int file_count = 0;
+char audio_files[99][255];
+
+// whether we need to redraw the screen
+int need_redraw = 1;
+
+// button reading rtos task
 void readbutton_task(void* pvParameters) {
   int state = !digitalRead(BUTTON_A_PIN);
   if (state != buttonAState) {
@@ -84,6 +97,7 @@ void readbutton_task(void* pvParameters) {
   vTaskDelay(pdMS_TO_TICKS(10000));  
 }
 
+// read the next chunk of audio from a raw audio file
 int read_file() {
 
   size_t bytes_read = file.readBytes((char*)&audio_buffer, AUDIO_BUFFER_SIZE);
@@ -96,6 +110,7 @@ int read_file() {
   return bytes_read;
 }
 
+// writes to i2s output buffer from audio_buffer
 int fill_i2s_buffer(int bytes_to_write) {
 
   /* writes bytes to buffer, returns true if all bytes sent else false,
@@ -129,6 +144,7 @@ int fill_i2s_buffer(int bytes_to_write) {
   
 }
 
+// copy next chunk of audio data from sdcard to i2s output buffer
 void play_audio() {
 
   static size_t bytes_read;
@@ -140,20 +156,30 @@ void play_audio() {
 
     bytes_read = read_file();
 
-    reading_file = false; // we have data to output, don't need to read next time
+		// convert to float and back for processing
+		if (bytes_read > 0) {
+			int16_t* sample_ptr = (int16_t*)audio_buffer;
+			int num_samples = bytes_read / sizeof(int16_t);
+
+			float volume = 0.75f;
+
+			for (int i=0; i<num_samples; i++) {
+				float sample_f = sample_ptr[i] / 32768.0f;
+				sample_f *= volume;
+
+				sample_ptr[i] = (int16_t)(sample_f * 32767.0f);
+			}
+		}
+
+    reading_file = false; // we have data to output, don't need to read next tim
 
   } else {
-
     reading_file = fill_i2s_buffer(bytes_read);
   }
 }
 
+// audio rtos task
 void i2s_task(void *pvParameters) {
-
-    // stuff for sine wave
-    float phase = 0.0f;
-    float phase_inc = (2.0f * PI * WAVE_FREQ_HZ) / SAMPLE_RATE;
-    int16_t sample;
 
     while (true) {
 
@@ -161,24 +187,26 @@ void i2s_task(void *pvParameters) {
       if (fileopen) {
 
 				play_audio();
+
+				// if i2s buffer isn't accepting data yet
+				// yeild to give the sd card bus and tetris logic cpu time
+				vTaskDelay(pdMS_TO_TICKS(1));
 	
       } else {
 
-        // Calculate and write sine sample to I2S buffer [0.1]
-				//				sample = (int16_t)(sinf(phase) * 10000.0f) * 0.1; // sample data 
-				//        int16_t samples[2] = {sample, sample};
 				size_t bytes_written; // number of bytes written to i2s
 
+				// write zeros to i2s buffer if a file isn't open
 				int16_t samples[2] = {0, 0};
 	
-				i2s_write(I2S_NUM, &samples, sizeof(samples), &bytes_written, portMAX_DELAY);
+				i2s_write(I2S_NUM, &samples, sizeof(samples), &bytes_written,
+									portMAX_DELAY);
 		
-				//        phase += phase_inc;
-				//        if (phase >= 2.0f * PI) phase -= 2.0f * PI;
 			}
     }
 }
 
+// draw current tetris frame
 void draw_tetris() {
 
   int fieldx = ((120 / 2) - (50 / 2)) - 3;
@@ -216,6 +244,7 @@ void draw_tetris() {
   u8g2.drawStr(10, 10, score_str);
 }
 
+// draw initial app menu
 void draw_menu() {
 
   u8g2.drawStr(3, 10, "tetris");
@@ -225,17 +254,23 @@ void draw_menu() {
   u8g2.drawFrame(0, app_selection * 10, 128, 12);
 }
 
+// draw music - here i want to read the sdcard and list the contents to allow for song selection
 void draw_music() {
 
-  u8g2.drawStr(3, 10, "flamenco.raw");
-  u8g2.drawFrame(0, 0, 128, 12);
+	for (int i=0; i<file_count; i++) {
+		u8g2.drawStr(3, 10 + 10 * i, audio_files[i]);
+	}
+
+	u8g2.drawFrame(0, 10 * selected_file, 128, 12);
 
 }
 
+// not done yet - want to have a music tracker eventually
 void draw_tracker() {
   u8g2.drawStr(3, 10, "tracker");
 }
 
+// initial setup on reset
 void setup() {
 
   Serial.begin(115200);
@@ -250,7 +285,8 @@ void setup() {
     .channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT,
     .communication_format = I2S_COMM_FORMAT_STAND_I2S,
     .dma_buf_count = 8,
-    .dma_buf_len = 64
+		//    .dma_buf_len = 64
+		.dma_buf_len = 512
   };
   i2s_pin_config_t pin_config = {
     .bck_io_num = I2S_BCK,
@@ -284,22 +320,80 @@ void setup() {
 
   delay(1000);
 
-	Serial.println("end setup");
-}
-
-void play_audio_file(char* filename) {
-
-	if(!SD.begin(5)){ // 5 is the CS pin
+	if (!SD.begin(5)){ // 5 is the CS pin
     Serial.println("Card Mount Failed");
     return;
   } else {
     Serial.println("card mount success");
   }
 
+
+	// print files in / of sdcard to serial monitor
+	//	list_files();
+	load_file_list();
+
+	Serial.println("end setup");
+}
+
+// preload the list of audio files on the sdcard
+void load_file_list() {
+
+	File root = SD.open("/");
+
+	if (!root) {
+		Serial.println("failed to open /");
+		return;
+	}
+
+	File f = root.openNextFile();
+	int i=0;
+	while (f) {
+
+		Serial.print("FILE: ");
+		Serial.print(f.name());
+		Serial.print(", SIZE: ");
+		Serial.println(f.size());
+
+		strcpy(audio_files[i], f.name());
+		
+		f = root.openNextFile();
+		i++;
+	}
+	Serial.printf("file count: %d\n", i);
+	file_count = i;
+
+}
+
+void list_files() {
+
+	File root = SD.open("/");
+
+	if (!root) {
+		Serial.println("failed to open /");
+		return;
+	}
+
+	File f = root.openNextFile();
+	int i=0;
+	while (f) {
+		Serial.print("FILE: ");
+		Serial.print(f.name());
+		Serial.print(", SIZE: ");
+		Serial.println(f.size());
+		f = root.openNextFile();
+		i++;
+	}
+	Serial.printf("file count: %d\n", i);
+	file_count = i;
+}
+
+// start playing raw audio from file on sdcard
+void play_audio_file(const char* filename) {
+
   if (SD.exists(filename)) {
     Serial.println("file exists");
   } else {
-    Serial.println("file doesn't exist");
+    Serial.printf("file %s doesn't exist\n", filename);
     return;
   }
     
@@ -313,6 +407,16 @@ void play_audio_file(char* filename) {
 
 }
 
+void play_selected_audio_file() {
+
+	char file_path[255] = "/";
+	strcat(file_path, audio_files[selected_file]);
+	strupr(file_path);
+
+	play_audio_file(file_path);
+}
+
+// main loop
 void loop() {
 
   int state = !digitalRead(BUTTON_A_PIN);
@@ -323,15 +427,20 @@ void loop() {
       if (current_app == application_menu) {
 				if (app_selection == APP_SELECTION_TETRIS) {
 					current_app = application_tetris;
+					need_redraw = 1;			
 				} else if (app_selection == APP_SELECTION_MUSIC) {
 					current_app = application_music;
+					need_redraw = 1;			
 				} else if (app_selection == APP_SELECTION_TRACKER) {
 					current_app = application_tracker;
+					need_redraw = 1;			
 				}
       } else if (current_app == application_tetris) {
 				rotate_active_tetromino();
+				need_redraw = 1;			
       } else if (current_app == application_music) {
-				play_audio_file("/FLAMENCO.RAW");
+				// start playing the currently selected raw audio file
+				play_selected_audio_file();
 			}
     }
   }
@@ -342,6 +451,7 @@ void loop() {
     Serial.printf("buttonBState changed to %d\n", buttonBState);
     if (buttonBState) {
       current_app = application_menu;
+			need_redraw = 1;			
     }
   }
 
@@ -355,11 +465,16 @@ void loop() {
     if (current_app == application_menu && buttonDownState) {
       app_selection++;
       if (app_selection >= APP_SELECTION_COUNT) {
-	app_selection = APP_SELECTION_COUNT - 1;
+				app_selection = APP_SELECTION_COUNT - 1;
       }
+			need_redraw = 1;			
     } else if (current_app == application_tetris) {
       drop_tetro_fast = buttonDownState;
-    }
+    } else if (current_app == application_music && buttonDownState) {
+			selected_file++;
+			if (selected_file >= file_count) selected_file = file_count - 1;
+			need_redraw = 1;			
+		}
   }
 
   state = !digitalRead(BUTTON_UP_PIN);
@@ -369,7 +484,12 @@ void loop() {
     if (current_app == application_menu && buttonUpState) {
       app_selection--;
       if (app_selection < 0) app_selection = 0;
-    }
+			need_redraw = 1;			
+    } else if (current_app == application_music && buttonUpState) {
+			selected_file--;
+			if (selected_file < 0) selected_file = 0;
+			need_redraw = 1;
+		}
   }
 
   state = !digitalRead(BUTTON_LEFT_PIN);
@@ -378,8 +498,7 @@ void loop() {
     Serial.printf("buttonLeftState changed to %d\n", buttonLeftState);
     if (buttonLeftState && current_app == application_tetris) {
       move_tetromino_left();
-      //      active_tetromino_x--;
-      //      if (active_tetromino_x < 0) active_tetromino_x = 0;
+			need_redraw = 1;
     }
   }
 
@@ -390,35 +509,41 @@ void loop() {
     if (buttonRightState && current_app == application_tetris) {
       // move the tetromino to the right if we can
       move_tetromino_right();
-      //      active_tetromino_x++;
-      //      if (active_tetromino_x > 10 - 4) active_tetromino_x = 10 - 4;
+			need_redraw = 1;
     }
   }
 
-  u8g2.clearBuffer();          // Clear internal memory
+	// update tetris game state
+	if (current_app == application_tetris) {
+		need_redraw |= update_tetris();
+	}
 
-  if (current_app == application_menu) {
+	if (need_redraw) {
 
-    draw_menu();
+		u8g2.clearBuffer();          // Clear internal memory
+
+		if (current_app == application_menu) {
+
+			draw_menu();
     
-  } else if (current_app == application_tetris) {
+		} else if (current_app == application_tetris) {
 
-    draw_tetris();
+			draw_tetris();
     
-  } else if (current_app == application_music) {
+		} else if (current_app == application_music) {
 
-    draw_music();
+			draw_music();
     
-  } else if (current_app == application_tracker) {
+		} else if (current_app == application_tracker) {
 
-    draw_tracker();
+			draw_tracker();
     
-  }
+		}
 
-  u8g2.sendBuffer();           // Transfer buffer to display
+		u8g2.sendBuffer();           // Transfer buffer to display
 
-  // update game state
-  update_tetris();
+		need_redraw = 0;
+	}
   
   vTaskDelay(pdMS_TO_TICKS(10));
 }

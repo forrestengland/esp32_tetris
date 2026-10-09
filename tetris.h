@@ -205,7 +205,7 @@ int active_tetromino_rotation = 0;
 int drop_tetro_fast = 0;
 
 int tetris_frame = 0;
-int tetris_speed = 5;
+int tetris_speed = 20;
 
 #define TETRIS_FIELD_COLS 10
 #define TETRIS_FIELD_ROWS 24
@@ -436,8 +436,10 @@ void check_tetris() {
   remove_tetrised_rows(tetrised_rows, tetrised_row_count);
 }
 
-void update_tetris() {
+// return 1 if we need to update the screen or 0
+int update_tetris() {
 
+  int ret = 0;
   int framemod = tetris_speed;
   if (drop_tetro_fast) framemod = 1;
 
@@ -471,16 +473,12 @@ void update_tetris() {
       active_tetromino_y = new_tetromino_y;
     }
 
-    // if we weren't able to move any more, add the active tetromino to
-    // the background playfield and spawn a new tetromino
-    //    if (able_to_move == 0) {
-    //      Serial.printf("unable to move active tetromino\n");
-    //      freeze_active_tetromino();
-    //      spawn_active_tetromino();
-      //    }
+    // something changed, need redraw
+    ret = 1;
   }
 
   tetris_frame++;
+  return ret;
 }
 
 void move_tetromino_left() {
