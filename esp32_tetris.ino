@@ -82,7 +82,10 @@ char audio_buffer[AUDIO_BUFFER_SIZE];
 // audio file selection
 int selected_file = 0;
 int file_count = 0;
-char audio_files[99][255];
+#define MAX_FILES 99
+char audio_files[MAX_FILES][255];
+int file_display_offset = 0;
+const int files_per_screen = 12;
 
 // whether we need to redraw the screen
 int need_redraw = 1;
@@ -105,6 +108,10 @@ int read_file() {
   if (bytes_read == 0) { // end of file
     file.close();
     fileopen = false; // done playing file
+
+		play_next_audio_file();
+
+		return 0;
   }
 
   return bytes_read;
@@ -156,19 +163,23 @@ void play_audio() {
 
     bytes_read = read_file();
 
+		if (bytes_read == 0) {
+			// end of old track. next track should be open now
+			reading_file = 1;
+			return;
+		}
+
 		// convert to float and back for processing
-		if (bytes_read > 0) {
-			int16_t* sample_ptr = (int16_t*)audio_buffer;
-			int num_samples = bytes_read / sizeof(int16_t);
+		int16_t* sample_ptr = (int16_t*)audio_buffer;
+		int num_samples = bytes_read / sizeof(int16_t);
 
-			float volume = 0.75f;
+		float volume = 0.75f;
 
-			for (int i=0; i<num_samples; i++) {
-				float sample_f = sample_ptr[i] / 32768.0f;
-				sample_f *= volume;
+		for (int i=0; i<num_samples; i++) {
+			float sample_f = sample_ptr[i] / 32768.0f;
+			sample_f *= volume;
 
-				sample_ptr[i] = (int16_t)(sample_f * 32767.0f);
-			}
+			sample_ptr[i] = (int16_t)(sample_f * 32767.0f);
 		}
 
     reading_file = false; // we have data to output, don't need to read next tim
@@ -257,12 +268,19 @@ void draw_menu() {
 // draw music - here i want to read the sdcard and list the contents to allow for song selection
 void draw_music() {
 
-	for (int i=0; i<file_count; i++) {
-		u8g2.drawStr(3, 10 + 10 * i, audio_files[i]);
+	int visible_count = file_count - file_display_offset;
+	if (visible_count > files_per_screen) {
+		visible_count = files_per_screen;
 	}
 
-	u8g2.drawFrame(0, 10 * selected_file, 128, 12);
+	for (int i=0; i<visible_count; i++) {
+		u8g2.drawStr(3, 10 + 10 * i, audio_files[file_display_offset + i]);
+	}
 
+	if (file_count > 0) {
+		int highlight_row = selected_file - file_display_offset;
+		u8g2.drawFrame(0, 10 * highlight_row, 128, 12);
+	}
 }
 
 // not done yet - want to have a music tracker eventually
@@ -347,7 +365,7 @@ void load_file_list() {
 
 	File f = root.openNextFile();
 	int i=0;
-	while (f) {
+	while (f && i < MAX_FILES) {
 
 		Serial.print("FILE: ");
 		Serial.print(f.name());
@@ -405,6 +423,23 @@ void play_audio_file(const char* filename) {
     Serial.println("file open fail");
   }
 
+}
+
+void play_next_audio_file() {
+
+	if (file_count == 0) {
+        return;
+    }
+
+    selected_file++;
+
+    // Wrap around to the first track
+    if (selected_file >= file_count) {
+        selected_file = 0;
+    }
+
+    play_selected_audio_file();
+    need_redraw = 1;
 }
 
 void play_selected_audio_file() {
@@ -471,9 +506,17 @@ void loop() {
     } else if (current_app == application_tetris) {
       drop_tetro_fast = buttonDownState;
     } else if (current_app == application_music && buttonDownState) {
-			selected_file++;
-			if (selected_file >= file_count) selected_file = file_count - 1;
-			need_redraw = 1;			
+
+			if (file_count > 0 && selected_file < file_count - 1) {
+				
+				selected_file++;
+				// scroll down when selection passes the visible rows
+				if (selected_file >= file_display_offset + files_per_screen) {
+					file_display_offset = selected_file - files_per_screen + 1;
+				}
+
+				need_redraw = 1;			
+			}
 		}
   }
 
@@ -486,9 +529,17 @@ void loop() {
       if (app_selection < 0) app_selection = 0;
 			need_redraw = 1;			
     } else if (current_app == application_music && buttonUpState) {
-			selected_file--;
-			if (selected_file < 0) selected_file = 0;
-			need_redraw = 1;
+
+			 if (selected_file > 0) {
+        selected_file--;
+
+        // Scroll up when selection moves above the visible window
+        if (selected_file < file_display_offset) {
+            file_display_offset = selected_file;
+        }
+
+        need_redraw = 1;
+			 }
 		}
   }
 
