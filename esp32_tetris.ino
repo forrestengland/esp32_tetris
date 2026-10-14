@@ -90,6 +90,9 @@ const int files_per_screen = 12;
 // whether we need to redraw the screen
 int need_redraw = 1;
 
+// audio volume
+float audio_volume = 0.5;
+
 // button reading rtos task
 void readbutton_task(void* pvParameters) {
   int state = !digitalRead(BUTTON_A_PIN);
@@ -173,11 +176,11 @@ void play_audio() {
 		int16_t* sample_ptr = (int16_t*)audio_buffer;
 		int num_samples = bytes_read / sizeof(int16_t);
 
-		float volume = 0.75f;
+		//		float volume = 0.75f;
 
 		for (int i=0; i<num_samples; i++) {
 			float sample_f = sample_ptr[i] / 32768.0f;
-			sample_f *= volume;
+			sample_f *= audio_volume;
 
 			sample_ptr[i] = (int16_t)(sample_f * 32767.0f);
 		}
@@ -540,7 +543,10 @@ void loop() {
     if (buttonLeftState && current_app == application_tetris) {
       move_tetromino_left();
 			need_redraw = 1;
-    }
+    } else if (buttonLeftState && current_app == application_music) {
+			audio_volume -= 0.1f;
+			if (audio_volume < 0.0f) audio_volume = 0.0f;
+		}
   }
 
   state = !digitalRead(BUTTON_RIGHT_PIN);
@@ -551,7 +557,10 @@ void loop() {
       // move the tetromino to the right if we can
       move_tetromino_right();
 			need_redraw = 1;
-    }
+    } else if (buttonRightState && current_app == application_music) {
+			audio_volume += 0.1f;
+			if (audio_volume > 1.0f) audio_volume = 1.0f;
+		}
   }
 
 	// update tetris game state
