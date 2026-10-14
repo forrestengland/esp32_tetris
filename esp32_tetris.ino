@@ -1,5 +1,4 @@
 /* micro sd card read of raw audio and tetris game */
-/* i2s from https://www.youtube.com/watch?v=oVVcuUuJ9CM */
 
 // for audio
 #include <driver/i2s.h>
@@ -33,8 +32,6 @@ U8G2_SH1107_PIMORONI_128X128_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE);
 // Defines for I2S, sample rate, frequency, and pins [0.1]
 #define I2S_NUM           I2S_NUM_0
 #define SAMPLE_RATE       44100
-// #define WAVE_FREQ_HZ      440.0f
-// #define PI                3.14159265f
 #define I2S_BCK 26
 #define I2S_WS  27
 #define I2S_DIN 25
@@ -62,17 +59,14 @@ typedef enum {
   application_menu,
   application_tetris,
   application_music,
-  application_tracker,
   application_count
 } application;
 
 // current / selected application
-//application current_app = application_tetris;
 application current_app = application_menu;
 #define APP_SELECTION_TETRIS 0
 #define APP_SELECTION_MUSIC 1
-#define APP_SELECTION_TRACKER 2
-#define APP_SELECTION_COUNT 3
+#define APP_SELECTION_COUNT 2
 int app_selection = 0;
 
 // audio buffer
@@ -82,7 +76,7 @@ char audio_buffer[AUDIO_BUFFER_SIZE];
 // audio file selection
 int selected_file = 0;
 int file_count = 0;
-#define MAX_FILES 99
+#define MAX_FILES 99 // max songs to read
 char audio_files[MAX_FILES][255];
 int file_display_offset = 0;
 const int files_per_screen = 12;
@@ -90,18 +84,8 @@ const int files_per_screen = 12;
 // whether we need to redraw the screen
 int need_redraw = 1;
 
-// audio volume
+// initial audio volume
 float audio_volume = 0.5;
-
-// button reading rtos task
-void readbutton_task(void* pvParameters) {
-  int state = !digitalRead(BUTTON_A_PIN);
-  if (state != buttonAState) {
-    buttonAState = state;
-    Serial.printf("button a state changed: %d\n", buttonAState);
-  }
-  vTaskDelay(pdMS_TO_TICKS(10000));  
-}
 
 // read the next chunk of audio from a raw audio file
 int read_file() {
@@ -175,8 +159,6 @@ void play_audio() {
 		// convert to float and back for processing
 		int16_t* sample_ptr = (int16_t*)audio_buffer;
 		int num_samples = bytes_read / sizeof(int16_t);
-
-		//		float volume = 0.75f;
 
 		for (int i=0; i<num_samples; i++) {
 			float sample_f = sample_ptr[i] / 32768.0f;
@@ -263,7 +245,6 @@ void draw_menu() {
 
   u8g2.drawStr(3, 10, "tetris");
   u8g2.drawStr(3, 20, "music");
-  u8g2.drawStr(3, 30, "groovebox");
 
   u8g2.drawFrame(0, app_selection * 10, 128, 12);
 }
@@ -284,11 +265,6 @@ void draw_music() {
 		int highlight_row = selected_file - file_display_offset;
 		u8g2.drawFrame(0, 10 * highlight_row, 128, 12);
 	}
-}
-
-// not done yet - want to have a music tracker eventually
-void draw_tracker() {
-  u8g2.drawStr(3, 10, "groovebox");
 }
 
 // initial setup on reset
@@ -375,29 +351,6 @@ void load_file_list() {
 
 }
 
-/* void list_files() {
-
-	File root = SD.open("/");
-
-	if (!root) {
-		Serial.println("failed to open /");
-		return;
-	}
-
-	File f = root.openNextFile();
-	int i=0;
-	while (f) {
-		Serial.print("FILE: ");
-		Serial.print(f.name());
-		Serial.print(", SIZE: ");
-		Serial.println(f.size());
-		f = root.openNextFile();
-		i++;
-	}
-	Serial.printf("file count: %d\n", i);
-	file_count = i;
-	} */
-
 // start playing raw audio from file on sdcard
 void play_audio_file(const char* filename) {
 
@@ -458,9 +411,6 @@ void loop() {
 					need_redraw = 1;			
 				} else if (app_selection == APP_SELECTION_MUSIC) {
 					current_app = application_music;
-					need_redraw = 1;			
-				} else if (app_selection == APP_SELECTION_TRACKER) {
-					current_app = application_tracker;
 					need_redraw = 1;			
 				}
       } else if (current_app == application_tetris) {
@@ -583,10 +533,6 @@ void loop() {
 		} else if (current_app == application_music) {
 
 			draw_music();
-    
-		} else if (current_app == application_tracker) {
-
-			draw_tracker();
     
 		}
 
