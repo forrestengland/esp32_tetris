@@ -205,7 +205,7 @@ int active_tetromino_rotation = 0;
 int drop_tetro_fast = 0;
 
 int tetris_frame = 0;
-int tetris_speed = 20;
+int tetris_speed = 100;
 
 #define TETRIS_FIELD_COLS 10
 #define TETRIS_FIELD_ROWS 24

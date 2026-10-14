@@ -557,5 +557,5 @@ void loop() {
 		need_redraw = 0;
 	}
   
-  vTaskDelay(pdMS_TO_TICKS(10));
+  vTaskDelay(pdMS_TO_TICKS(1));
 }
