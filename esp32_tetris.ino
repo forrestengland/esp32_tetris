@@ -232,7 +232,7 @@ void draw_tetris() {
     for (int col=0; col<10; col++) {
 
       /* need to find out if part of the active tetromino is in the current block
-	 and draw it */
+				 and draw it */
 
       /* current block coordinates */
       int bx = col * 5 + 2;
@@ -260,7 +260,7 @@ void draw_menu() {
 
   u8g2.drawStr(3, 10, "tetris");
   u8g2.drawStr(3, 20, "music");
-  u8g2.drawStr(3, 30, "tracker");
+  u8g2.drawStr(3, 30, "groovebox");
 
   u8g2.drawFrame(0, app_selection * 10, 128, 12);
 }
@@ -285,7 +285,7 @@ void draw_music() {
 
 // not done yet - want to have a music tracker eventually
 void draw_tracker() {
-  u8g2.drawStr(3, 10, "tracker");
+  u8g2.drawStr(3, 10, "groovebox");
 }
 
 // initial setup on reset
@@ -323,17 +323,10 @@ void setup() {
   pinMode(BUTTON_UP_PIN, INPUT_PULLUP);
   pinMode(BUTTON_LEFT_PIN, INPUT_PULLUP);
   pinMode(BUTTON_RIGHT_PIN, INPUT_PULLUP);    
-  //  xTaskCreatePinnedToCore(readbutton_task, "readbutton_task", 4096, NULL, 6, NULL, 0);  
 
   u8g2.begin();
   u8g2.clearBuffer();          // Clear internal memory
   u8g2.setFont(u8g2_font_ncenB08_tr); // Choose a font
-  /*  u8g2.drawStr(0, 20, "Button A released");
-  u8g2.drawStr(0, 30, "Button B released");
-  u8g2.drawStr(0, 40, "Button Down released");
-  u8g2.drawStr(0, 50, "Button Up released");
-  u8g2.drawStr(0, 60, "Button Left released");
-  u8g2.drawStr(0, 70, "Button Right released");  */
   u8g2.sendBuffer();           // Transfer buffer to display
 
   delay(1000);
@@ -345,9 +338,6 @@ void setup() {
     Serial.println("card mount success");
   }
 
-
-	// print files in / of sdcard to serial monitor
-	//	list_files();
 	load_file_list();
 
 	Serial.println("end setup");
@@ -356,10 +346,10 @@ void setup() {
 // preload the list of audio files on the sdcard
 void load_file_list() {
 
-	File root = SD.open("/");
+	File root = SD.open("/AUDIO/");
 
 	if (!root) {
-		Serial.println("failed to open /");
+		Serial.println("failed to open /AUDIO/");
 		return;
 	}
 
@@ -382,7 +372,7 @@ void load_file_list() {
 
 }
 
-void list_files() {
+/* void list_files() {
 
 	File root = SD.open("/");
 
@@ -403,7 +393,7 @@ void list_files() {
 	}
 	Serial.printf("file count: %d\n", i);
 	file_count = i;
-}
+	} */
 
 // start playing raw audio from file on sdcard
 void play_audio_file(const char* filename) {
@@ -444,7 +434,7 @@ void play_next_audio_file() {
 
 void play_selected_audio_file() {
 
-	char file_path[255] = "/";
+	char file_path[255] = "/AUDIO/";
 	strcat(file_path, audio_files[selected_file]);
 	strupr(file_path);
 
