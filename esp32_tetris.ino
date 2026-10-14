@@ -21,6 +21,9 @@ extern "C" {
   #include "tetris.h"
 }
 
+// platformer
+#include "platformer.h"
+
 // oled stuff
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 128
@@ -59,6 +62,7 @@ typedef enum {
   application_menu,
   application_tetris,
   application_music,
+	application_platformer,
   application_count
 } application;
 
@@ -66,7 +70,8 @@ typedef enum {
 application current_app = application_menu;
 #define APP_SELECTION_TETRIS 0
 #define APP_SELECTION_MUSIC 1
-#define APP_SELECTION_COUNT 2
+#define APP_SELECTION_PLATFORMER 2
+#define APP_SELECTION_COUNT 3
 int app_selection = 0;
 
 // audio buffer
@@ -245,6 +250,7 @@ void draw_menu() {
 
   u8g2.drawStr(3, 10, "tetris");
   u8g2.drawStr(3, 20, "music");
+	u8g2.drawStr(3, 30, "platformer");
 
   u8g2.drawFrame(0, app_selection * 10, 128, 12);
 }
@@ -412,6 +418,9 @@ void loop() {
 				} else if (app_selection == APP_SELECTION_MUSIC) {
 					current_app = application_music;
 					need_redraw = 1;			
+				} else if (app_selection == APP_SELECTION_PLATFORMER) {
+					current_app = application_platformer;
+					need_redraw = 1;
 				}
       } else if (current_app == application_tetris) {
 				rotate_active_tetromino();
@@ -518,6 +527,11 @@ void loop() {
 		need_redraw |= update_tetris();
 	}
 
+	if (current_app == application_platformer) {
+		Platformer::update(buttonLeftState, buttonRightState, buttonAState);
+		need_redraw = 1;
+	}
+
 	if (need_redraw) {
 
 		u8g2.clearBuffer();          // Clear internal memory
@@ -534,6 +548,8 @@ void loop() {
 
 			draw_music();
     
+		} else if (current_app == application_platformer) {
+			Platformer::draw(u8g2);
 		}
 
 		u8g2.sendBuffer();           // Transfer buffer to display
