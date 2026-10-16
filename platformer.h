@@ -48,6 +48,28 @@ namespace Platformer {
     "################"
   };
 
+#define PLAYER_WIDTH  16
+#define PLAYER_HEIGHT 16
+
+  static const char *player_tile[PLAYER_HEIGHT] = {
+    ".....#####......",
+    "....#.....#.....",
+    ".....#####......",
+    "....#.....#.....",
+    "....#.#.#.#.....",
+    "....#.#.#.#.....",
+    "....#.#.#.#.....",
+    "....#.###.#.....",
+    "....#.#.#.#.....",
+    ".....#.#.#......",
+    ".....#...#......",
+    ".....#...#......",
+    ".....#...#......",
+    ".....######.....",
+    ".....#.....#....",
+    ".....#######...."
+  };
+
   // Each row must contain exactly MAP_W (64) characters.
   static const char level[MAP_W * MAP_H + 1] =
     "................................................................"
@@ -84,6 +106,16 @@ namespace Platformer {
     for (int row = 0; row < BLOCK_HEIGHT; row++) {
       for (int col = 0; col < BLOCK_WIDTH; col++) {
 	if (block_tile[row][col] == '#') {
+	  u8g2.drawPixel(x + col, y + row);
+	}
+      }
+    }
+  }
+
+  void drawPlayerTile(U8G2 &u8g2, int x, int y) {
+    for (int row = 0; row < PLAYER_HEIGHT; row++) {
+      for (int col = 0; col < PLAYER_WIDTH; col++) {
+	if (player_tile[row][col] == '#') {
 	  u8g2.drawPixel(x + col, y + row);
 	}
       }
@@ -231,7 +263,8 @@ namespace Platformer {
 	  continue;
 
 	// Draw the 16x16 ASCII tile bitmap.
-	for (int ty = 0; ty < BLOCK_HEIGHT; ++ty) {
+	drawBlockTile(display, px, py);
+	/*	for (int ty = 0; ty < BLOCK_HEIGHT; ++ty) {
 	  for (int tx = 0; tx < BLOCK_WIDTH; ++tx) {
 	    if (block_tile[ty][tx] != '#')
 	      continue;
@@ -243,8 +276,8 @@ namespace Platformer {
 		sy >= 0 && sy < SCREEN_H) {
 	      display.drawPixel(sx, sy);
 	    }
-	  }
-	}
+	    }
+      } */
       }
     }
 
@@ -269,7 +302,8 @@ namespace Platformer {
 
     if (x1 > x0 && y1 > y0) {
       display.setDrawColor(1);
-      display.drawBox(x0, y0, x1 - x0, y1 - y0);
+      //      display.drawBox(x0, y0, x1 - x0, y1 - y0);
+      drawPlayerTile(display, x0, y0);
     }
   }
 
