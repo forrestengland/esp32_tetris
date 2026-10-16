@@ -112,11 +112,21 @@ namespace Platformer {
     }
   }
 
-  void drawPlayerTile(U8G2 &u8g2, int x, int y) {
-    for (int row = 0; row < PLAYER_HEIGHT; row++) {
-      for (int col = 0; col < PLAYER_WIDTH; col++) {
-	if (player_tile[row][col] == '#') {
-	  u8g2.drawPixel(x + col, y + row);
+  void drawPlayerTile(U8G2 &u8g2, int x, int y, int hflip) {
+    if (hflip) {
+      for (int row = 0; row < PLAYER_HEIGHT; row++) {
+	for (int col = 0; col < PLAYER_WIDTH; col++) {
+	  if (player_tile[row][PLAYER_WIDTH - col - 1] == '#') {
+	    u8g2.drawPixel(x + col, y + row);
+	  }
+	}
+      }
+    } else { 
+      for (int row = 0; row < PLAYER_HEIGHT; row++) {
+	for (int col = 0; col < PLAYER_WIDTH; col++) {
+	  if (player_tile[row][col] == '#') {
+	    u8g2.drawPixel(x + col, y + row);
+	  }
 	}
       }
     }
@@ -303,7 +313,7 @@ namespace Platformer {
     if (x1 > x0 && y1 > y0) {
       display.setDrawColor(1);
       //      display.drawBox(x0, y0, x1 - x0, y1 - y0);
-      drawPlayerTile(display, x0, y0);
+      drawPlayerTile(display, x0, y0, facing_left);
     }
   }
 
