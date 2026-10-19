@@ -1,7 +1,7 @@
 #ifndef H_DRUMMACHINE
 #define H_DRUMMACHINE
 
-// #include "fosc.h"
+// #include "fperc.h"
 
 const int dm_steps = 16;
 const int dm_channels = 4;
@@ -20,12 +20,12 @@ int dm_play_step = 0;
 int dm_sample = 0;
 float dm_tempo = 120.0f;
 
-// fosc* dm_osc = 0;
+// fperc* dm_perc = 0;
 float dm_gate = 0.0f;
 
 void drummachine_init() {
-  //  dm_osc = fosc_create();
-  //  fosc_setfreq(dm_osc, 100.0);
+  //  dm_perc = fperc_create();
+  //  fperc_setdecay(dm_perc, 0.2);
 }
 
 float drummachine_process() {
@@ -42,11 +42,21 @@ float drummachine_process() {
     dm_gate = 0.0f;
   }
 
+  //  fperc_setgate(dm_perc, (int)dm_gate);
+  //  fperc_compute(dm_perc);
+  
   //  fosc_compute(dm_osc, dm_sample);
   //  float os = dm_osc->sinevalue;
+
+  // noise
   float os = (float)random(32767 * 2) / 32767.0f - 0.5;
+
+  // env
+  float env = 1.0f - ((float)(dm_sample % samples_per_step) / (float)samples_per_step);
+
+  float step_on = (float)dm_pattern[dm_play_step];
   
-  return os * dm_gate;
+  return os * env * step_on;
 }
 
 void drummachine_inc_cursstep() {
