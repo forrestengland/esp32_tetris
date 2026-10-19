@@ -196,20 +196,31 @@ void i2s_task(void *pvParameters) {
 
 				// if i2s buffer isn't accepting data yet
 				// yeild to give the sd card bus and tetris logic cpu time
-				vTaskDelay(pdMS_TO_TICKS(1));
+				//				vTaskDelay(pdMS_TO_TICKS(1));
 	
       } else {
 
 				size_t bytes_written; // number of bytes written to i2s
 
+				// process drum machine audio
+				float sf = 0.0;
+				if (current_app == application_drum) {
+					sf = drummachine_process();
+				}
+				int16_t si = (int16_t)(sf * 32767.0f);
+
 				// write zeros to i2s buffer if a file isn't open
-				int16_t samples[2] = {0, 0};
+				int16_t samples[2] = {si, si};
 	
 				i2s_write(I2S_NUM, &samples, sizeof(samples), &bytes_written,
 									portMAX_DELAY);
 		
 			}
     }
+
+		// if i2s buffer isn't accepting data yet
+		// yeild to give the sd card bus and tetris logic cpu time
+		vTaskDelay(pdMS_TO_TICKS(1));
 }
 
 // draw current tetris frame
@@ -290,6 +301,8 @@ void setup() {
   Serial.begin(115200);
 
   Serial.println("setup");
+
+	drummachine_init();
 
    // Configure I2S mode, sample rate, bits per sample, and pins [0.1]
   i2s_config_t i2s_config = {
@@ -417,6 +430,7 @@ void play_selected_audio_file() {
 // main loop
 void loop() {
 
+	// read a button
   int state = !digitalRead(BUTTON_A_PIN);
   if (state != buttonAState) {
     buttonAState = state;
@@ -449,6 +463,7 @@ void loop() {
     }
   }
 
+	// read b button
   state = !digitalRead(BUTTON_B_PIN);
   if (state != buttonBState) {
     buttonBState = state;
@@ -459,6 +474,7 @@ void loop() {
     }
   }
 
+	// read down button
   state = !digitalRead(BUTTON_DOWN_PIN);
   if (state != buttonDownState) {
 
@@ -492,6 +508,7 @@ void loop() {
 		}
   }
 
+	// read up button
   state = !digitalRead(BUTTON_UP_PIN);
   if (state != buttonUpState) {
     buttonUpState = state;
@@ -518,6 +535,7 @@ void loop() {
 		}
   }
 
+	// read left button
   state = !digitalRead(BUTTON_LEFT_PIN);
   if (state != buttonLeftState) {
     buttonLeftState = state;
@@ -534,6 +552,7 @@ void loop() {
 		}
   }
 
+	// read right button
   state = !digitalRead(BUTTON_RIGHT_PIN);
   if (state != buttonRightState) {
     buttonRightState = state;
@@ -556,8 +575,14 @@ void loop() {
 		need_redraw |= update_tetris();
 	}
 
+	// update platform game
 	if (current_app == application_platformer) {
 		Platformer::update(buttonLeftState, buttonRightState, buttonAState);
+		need_redraw = 1;
+	}
+
+	// update drum machine
+	if (current_app == application_drum) {
 		need_redraw = 1;
 	}
 
