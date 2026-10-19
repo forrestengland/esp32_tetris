@@ -24,6 +24,9 @@ extern "C" {
 // platformer
 #include "platformer.h"
 
+// drum machine
+#include "drum_machine.h"
+
 // oled stuff
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 128
@@ -63,6 +66,7 @@ typedef enum {
   application_tetris,
   application_music,
 	application_platformer,
+	application_drum,
   application_count
 } application;
 
@@ -71,7 +75,8 @@ application current_app = application_menu;
 #define APP_SELECTION_TETRIS 0
 #define APP_SELECTION_MUSIC 1
 #define APP_SELECTION_PLATFORMER 2
-#define APP_SELECTION_COUNT 3
+#define APP_SELECTION_DRUM 3
+#define APP_SELECTION_COUNT 4
 int app_selection = 0;
 
 // audio buffer
@@ -251,6 +256,7 @@ void draw_menu() {
   u8g2.drawStr(3, 10, "tetris");
   u8g2.drawStr(3, 20, "music");
 	u8g2.drawStr(3, 30, "platformer");
+	u8g2.drawStr(3, 40, "drum");
 
   u8g2.drawFrame(0, app_selection * 10, 128, 12);
 }
@@ -271,6 +277,11 @@ void draw_music() {
 		int highlight_row = selected_file - file_display_offset;
 		u8g2.drawFrame(0, 10 * highlight_row, 128, 12);
 	}
+}
+
+void draw_drum() {
+	//	u8g2.drawStr(3, 10, "drum machine");
+	drummachine_draw(u8g2);
 }
 
 // initial setup on reset
@@ -421,6 +432,9 @@ void loop() {
 				} else if (app_selection == APP_SELECTION_PLATFORMER) {
 					current_app = application_platformer;
 					need_redraw = 1;
+				} else if (app_selection == APP_SELECTION_DRUM) {
+					current_app = application_drum;
+					need_redraw = 1;
 				}
       } else if (current_app == application_tetris) {
 				rotate_active_tetromino();
@@ -428,6 +442,9 @@ void loop() {
       } else if (current_app == application_music) {
 				// start playing the currently selected raw audio file
 				play_selected_audio_file();
+			} else if (current_app == application_drum) {
+				drummachine_toggle_cursstep();
+				need_redraw = 1;
 			}
     }
   }
@@ -469,6 +486,9 @@ void loop() {
 
 				need_redraw = 1;			
 			}
+		} else if (current_app == application_drum && buttonDownState) {
+			drummachine_inc_curschan();
+			need_redraw = 1;
 		}
   }
 
@@ -492,6 +512,9 @@ void loop() {
 
         need_redraw = 1;
 			 }
+		} else if (current_app == application_drum && buttonUpState) {
+			drummachine_dec_curschan();
+			need_redraw = 1;
 		}
   }
 
@@ -505,6 +528,9 @@ void loop() {
     } else if (buttonLeftState && current_app == application_music) {
 			audio_volume -= 0.1f;
 			if (audio_volume < 0.0f) audio_volume = 0.0f;
+		} else if (current_app == application_drum && buttonLeftState) {
+			drummachine_dec_cursstep();
+			need_redraw = 1;
 		}
   }
 
@@ -519,6 +545,9 @@ void loop() {
     } else if (buttonRightState && current_app == application_music) {
 			audio_volume += 0.1f;
 			if (audio_volume > 1.0f) audio_volume = 1.0f;
+		} else if (current_app == application_drum && buttonRightState) {
+			drummachine_inc_cursstep();
+			need_redraw = 1;
 		}
   }
 
@@ -550,6 +579,8 @@ void loop() {
     
 		} else if (current_app == application_platformer) {
 			Platformer::draw(u8g2);
+		} else if (current_app == application_drum) {
+			draw_drum();
 		}
 
 		u8g2.sendBuffer();           // Transfer buffer to display
